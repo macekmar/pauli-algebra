@@ -10,7 +10,7 @@ from _heis_liovillian import HeisenbergLocalLiouvillian
 # Parameters
 N = 6
 V = 4.7
-g = 2.3
+h = 2.3
 dt = 1e-2
 
 # Set up machinery
@@ -18,11 +18,11 @@ hilbert = nk.hilbert.Spin(s=1 / 2, N=N)
 dh = nk.hilbert.DoubledHilbert(hilbert)
 graph = nk.graph.Chain(length=N, pbc=True)
 
-H_final = nk.operator.Ising(hilbert, graph, h=-g, J=V)
+H_final = nk.operator.Ising(hilbert, graph, h=h, J=V)
 jump_ops = [sigmam(hilbert, i) for i in range(N)]
 HeisL_final = HeisenbergLocalLiouvillian(H_final, jump_ops)
 L_mat = HeisL_final.to_sparse()
-L_str = pa.gen_Lindblad_TFI(N, -g, V, dissipation=True)
+L_str = pa.gen_Lindblad_TFI(N, h, V, dissipation=True)
 
 # Operator
 strings = [

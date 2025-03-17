@@ -2,9 +2,11 @@ from __future__ import annotations
 
 from copy import deepcopy
 from numbers import Number
-from typing import Iterable, Union
+from typing import Iterable, Union, Callable, List
 
+import jax
 import numpy as np
+from jax import numpy as jnp
 
 from .pauli_string import PauliString
 
@@ -21,6 +23,7 @@ class PauliOperator(dict):
         self,
         N: Union[int, None] = None,
         strings: Union[Iterable[PauliString], None] = None,
+        seed: int = None
     ):
         """Creates an empty Pauli operator provided N or from a list of PauliStrings."""
         if N is None and strings is None:
@@ -36,6 +39,9 @@ class PauliOperator(dict):
             super().__init__()
 
         self._N = N
+
+        self._rng = None
+        self._seed = seed
 
     @property
     def N(self) -> int:
@@ -57,6 +63,14 @@ class PauliOperator(dict):
     @property
     def lists(self):
         return np.array([ps.list for _, ps in self.items()])
+
+    @property
+    def rng(self):
+        if self._rng is None:
+            if self._seed is None:
+                self._seed = int(np.random.default_rng().integers(0, 1 << 32))
+            self._rng = jax.random.key(self._seed)
+        return self._rng
 
     def __missing__(self, pauli_str: Union[str, PauliString]) -> PauliString:
         assert len(pauli_str) == self.N  # We could take pauli_str.N iff PauliString
@@ -124,6 +138,33 @@ class PauliOperator(dict):
             key = strings[ind]
             del self[key]
 
+    def sample(self, shape: int | List[int], pdf: Callable = None):
+        new_key, key = jax.random.split(self.rng)
+
+        if np.isscalar(shape):
+            shape = [shape]
+
+        if pdf is None:
+            pdf = lambda w: np.abs(w) / np.sum(np.abs(w))
+
+        # inds - which Pauli string of all we are taking
+        inds = jax.random.choice(
+            key, jnp.arange(len(self.weights)), shape=shape, p=pdf(self.weights)
+        )
+        # x - which element of Pauli matrix we are taking
+        shp = list(shape) + [self.N]
+        x = jax.random.choice(key, jnp.array([0, 1]), shape=shp, replace=True)
+
+        # Map local indices and weights to a global one
+        from .pauli_string import _string_to_number
+
+        num_strings = np.array([_string_to_number(st) for st in self.strings])
+        σ, w = _local_to_global(x, num_strings[inds], self.weights[inds])
+
+        self._rng = new_key
+
+        return σ, w
+
     # def to_netket(self):
     #     """Transforms the PauliOperator to a NetKet operator."""
     #     return nk.operator.PauliStrings(self.strings, self.weights)
@@ -145,3 +186,17 @@ class PauliOperator(dict):
         for k, s in self.items():
             res += s.to_Pauli_basis()
         return res
+
+
+@jax.jit
+def _local_to_global(x, string, weights):
+    mapping = jnp.array(
+        [
+            [[0, 0, 1], [1, 1, 1]],
+            [[0, 1, 1], [1, 0, 1]],
+            [[0, 1, -1j], [1, 0, 1j]],
+            [[0, 0, 1], [1, 1, -1]],
+        ]
+    )
+    r = mapping[string, x, :]
+    return r[..., :2], weights * np.prod(r[..., -1], axis=-1)

@@ -129,3 +129,11 @@ class PauliString:
 
         vecs = [_s_to_v[s] for s in self.string]
         return self.weight * _kp(*vecs)
+
+    def string_to_number(self):
+        """Transform Pauli string to a list of integers: I→0, X→1, Y→2, Z→3."""
+        return _string_to_number(self.string)
+
+def _string_to_number(string):
+    _s_to_n = {"I": 0, "X": 1, "Y": 2, "Z": 3}
+    return [_s_to_n[s] for s in string]

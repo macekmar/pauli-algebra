@@ -1,3 +1,4 @@
+from ._version import version as __version__
 from .pauli_string import PauliString
 from .pauli_operator import PauliOperator
 

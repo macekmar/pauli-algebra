@@ -187,6 +187,12 @@ class PauliOperator(dict):
             res += s.to_Pauli_basis()
         return res
 
+    def at(self, si, sj):
+        el = 0
+        for k, s in self.items():
+            el += s.at(si,sj)
+        return el
+
 
 @jax.jit
 def _local_to_global(x, string, weights):

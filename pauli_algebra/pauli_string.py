@@ -8,13 +8,27 @@ import numpy as np
 import scipy as sc
 
 
+_s_to_sm = {
+    "I": np.array([[1, 0], [0, 1]], dtype=np.complex128),
+    "X": np.array([[0, 1], [1, 0]], dtype=np.complex128),
+    "Y": np.array([[0, -1j], [1j, 0]], dtype=np.complex128),
+    "Z": np.array([[1, 0], [0, -1]], dtype=np.complex128),
+}
+
+
 class PauliString:
     """Dressed Pauli string with common manipulations."""
 
     def __init__(
-        self, weight: Number, string: Union[List[str], str], N: Union[int, None] = None
+        self,
+        weight: Number,
+        string: Union[List[str], str],
+        N: Union[int, None] = None,
+        inverted_ordering: bool = False,
     ):
-        """Define weight of the Pauli string and store the string as a list."""
+        """Define weight of the Pauli string and store the string as a list.
+
+        inverted_ordering: ordering of spins, necessary for NetKet compatibility."""
         self._w = weight
 
         if isinstance(string, str):
@@ -27,6 +41,11 @@ class PauliString:
         else:
             N = len(self._list)
         self._N = N
+
+        self._inverted_ordering = inverted_ordering
+
+        self._mats = np.array([_s_to_sm[s] for s in self._string])
+        self._spmats = [sc.sparse.csr_array(m) for m in self._mats]
 
     @property
     def string(self):
@@ -98,18 +117,11 @@ class PauliString:
 
     def to_sparse(self):
         """Returns a sparse matrix represenattion in the spin basis."""
-        _s_to_sm = {
-            "I": sc.sparse.csr_array([[1, 0], [0, 1]], dtype=np.complex128),
-            "X": sc.sparse.csr_array([[0, 1], [1, 0]], dtype=np.complex128),
-            "Y": sc.sparse.csr_array([[0, -1j], [1j, 0]], dtype=np.complex128),
-            "Z": sc.sparse.csr_array([[1, 0], [0, -1]], dtype=np.complex128),
-        }
 
         def _kp(*args):
             return reduce(lambda x, y: sc.sparse.kron(x, y), args, sc.sparse.eye(1))
 
-        mats = [_s_to_sm[s] for s in self.string]
-        return self.weight * _kp(*mats)
+        return self.weight * _kp(*self._spmats)
 
     def to_dense(self):
         """Returns a dense matrix represenattion in the spin basis."""
@@ -133,6 +145,16 @@ class PauliString:
     def string_to_number(self):
         """Transform Pauli string to a list of integers: I→0, X→1, Y→2, Z→3."""
         return _string_to_number(self.string)
+
+    def at(self, si, sj):
+        """Returns matrix element A_{si, sj} at spin configuration si, sj.
+
+        si, sj should be spin configurations ±1 for each place."""
+        sgn = -1 if self._inverted_ordering else +1
+        bi = (1 - sgn * si) // 2
+        bj = (1 - sgn * sj) // 2
+        return self.weight*np.prod(self._mats[np.arange(self.N), bi, bj], axis=-1)
+
 
 def _string_to_number(string):
     _s_to_n = {"I": 0, "X": 1, "Y": 2, "Z": 3}

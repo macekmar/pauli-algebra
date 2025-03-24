@@ -58,7 +58,7 @@ def test_cover_identical_ele():
 def test_matrix_is_close():
     # This very much depends on seeed
     ps = build_pauli_operator(seed=1234)
-    n_samples = 100000
+    n_samples = 200000
     σ, w = ps.sample(n_samples)
 
     uv = (2 ** (np.arange(ps.N)[::-1]) @ σ).real.astype(int)
@@ -77,4 +77,4 @@ def test_matrix_is_close():
         m / σ.shape[0] * 2**ps.N * np.sum(np.abs(ps.weights))
     )  # -- should now be close to ps.to_dense()
 
-    assert np.linalg.norm(m - ps.to_dense()) / np.linalg.norm(ps.to_dense()) < 0.0204
+    assert np.linalg.norm(m - ps.to_dense()) / np.linalg.norm(ps.to_dense()) < 0.015

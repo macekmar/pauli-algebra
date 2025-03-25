@@ -3,6 +3,7 @@ from __future__ import annotations
 from copy import deepcopy
 from numbers import Number
 from typing import Iterable, Union, Callable, List
+from functools import partial
 
 import jax
 import numpy as np
@@ -23,7 +24,8 @@ class PauliOperator(dict):
         self,
         N: Union[int, None] = None,
         strings: Union[Iterable[PauliString], None] = None,
-        seed: int = None
+        seed: int = None,
+        inverted_ordering: Union[bool, None] = None,
     ):
         """Creates an empty Pauli operator provided N or from a list of PauliStrings."""
         if N is None and strings is None:
@@ -31,6 +33,13 @@ class PauliOperator(dict):
         if strings:
             Ns = np.unique([s.N for s in strings])
             assert len(Ns) == 1
+            inv_ord = set([s._inverted_ordering for s in strings])
+            assert len(inv_ord) == 1  # They should be all the same
+            if inverted_ordering is not None:
+                assert inverted_ordering == inv_ord.pop()
+            else:
+                inverted_ordering = inv_ord.pop()
+
             super().__init__((s.string, s) for s in strings)
             if N:
                 assert N == Ns[0]
@@ -42,6 +51,9 @@ class PauliOperator(dict):
 
         self._rng = None
         self._seed = seed
+        if inverted_ordering is None:
+            inverted_ordering = False
+        self._inverted_ordering = inverted_ordering
 
     @property
     def N(self) -> int:
@@ -161,11 +173,11 @@ class PauliOperator(dict):
         from .pauli_string import _string_to_number
 
         num_strings = np.array([_string_to_number(st) for st in self.strings])
-        σ, w = _local_to_global(x, num_strings[inds], self.weights[inds])
+        σi, σj, w = _local_to_global(num_strings[inds], x, self.weights[inds], self._inverted_ordering)
 
         self._rng = new_key
 
-        return σ, w
+        return σi, σj, w
 
     # def to_netket(self):
     #     """Transforms the PauliOperator to a NetKet operator."""
@@ -196,15 +208,30 @@ class PauliOperator(dict):
         return el
 
 
-@jax.jit
-def _local_to_global(x, string, weights):
-    mapping = jnp.array(
+@partial(jax.jit, static_argnums=3)
+def _local_to_global(string, x, ps_weights, inverted_ordering):
+    # inds and weigts store for each pauli matrix the indices and weights of two
+    # non-zero elements. Say X: X_01 = 1, X_10 = 1
+    inds = jnp.array(
         [
-            [[0, 0, 1], [1, 1, 1]],
-            [[0, 1, 1], [1, 0, 1]],
-            [[0, 1, -1j], [1, 0, 1j]],
-            [[0, 0, 1], [1, 1, -1]],
+            [[0, 0], [1, 1]],
+            [[0, 1], [1, 0]],
+            [[0, 1], [1, 0]],
+            [[0, 0], [1, 1]],
+        ],
+        dtype=jnp.int8,
+    )
+    el_weights = jnp.array(
+        [
+            [1, 1],
+            [1, 1],
+            [-1j, 1j],
+            [1, -1],
         ]
     )
-    r = mapping[string, x, :]
-    return r[..., :2], weights * np.prod(r[..., -1], axis=-1)
+
+    if inverted_ordering:
+            σ = 2*inds[string, x] - 1
+    else:
+            σ = 1 - 2*inds[string, x]
+    return σ[...,0], σ[...,1], ps_weights*np.prod(el_weights[string, x], -1)

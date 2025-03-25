@@ -35,9 +35,9 @@ def build_pauli_operator(seed=1234):
 def test_shape():
     ps = build_pauli_operator()
     n_samples = 100000
-    σ, w = ps.sample(n_samples)
-
-    assert σ.shape == (n_samples, ps.N, 2)
+    σi, σj, w = ps.sample(n_samples)
+    assert σi.shape == σj.shape
+    assert σi.shape == (n_samples, ps.N)
     assert w.shape == (n_samples,)
 
 
@@ -45,7 +45,10 @@ def test_cover_identical_ele():
     # This very much depends on seeed
     ps = build_pauli_operator(seed=1234)
     n_samples = 100000
-    σ, _ = ps.sample(n_samples)
+    σi, σj, _ = ps.sample(n_samples)
+    σ = np.array([σi.T,σj.T]).T
+    σ = (1 - σ)//2
+
     uv = (2 ** (np.arange(ps.N)[::-1]) @ σ).real.astype(int)
     u, v = np.unique(uv, axis=0).T
 
@@ -59,7 +62,9 @@ def test_matrix_is_close():
     # This very much depends on seeed
     ps = build_pauli_operator(seed=1234)
     n_samples = 200000
-    σ, w = ps.sample(n_samples)
+    σi, σj, w = ps.sample(n_samples)
+    σ = np.array([σi.T,σj.T]).T
+    σ = (1 - σ)//2
 
     uv = (2 ** (np.arange(ps.N)[::-1]) @ σ).real.astype(int)
     # We shouldn't do unique on uv: different Pauli strings act on the same indices, e.g. XZ vs YI

@@ -7,6 +7,9 @@ from typing import Iterable, List, Union
 import numpy as np
 import scipy as sc
 
+import jax
+from jax import numpy as jnp
+from functools import partial
 
 _s_to_sm = {
     "I": np.array([[1, 0], [0, 1]], dtype=np.complex128),
@@ -44,7 +47,8 @@ class PauliString:
 
         self._inverted_ordering = inverted_ordering
 
-        self._mats = np.array([_s_to_sm[s] for s in self._string])
+        self._wj = jnp.array([self._w])
+        self._mats = jnp.array([_s_to_sm[s] for s in self._string])
         self._spmats = [sc.sparse.csr_array(m) for m in self._mats]
 
     @property
@@ -151,11 +155,15 @@ class PauliString:
 
         si, sj should be spin configurations ±1 for each place."""
         sgn = -1 if self._inverted_ordering else +1
-        bi = (1 - sgn * si) // 2
-        bj = (1 - sgn * sj) // 2
-        return self.weight*np.prod(self._mats[np.arange(self.N), bi, bj], axis=-1)
+        return _at(sgn, self.N, si, sj,self._wj, self._mats)
 
 
 def _string_to_number(string):
     _s_to_n = {"I": 0, "X": 1, "Y": 2, "Z": 3}
     return [_s_to_n[s] for s in string]
+
+@partial(jax.jit, static_argnums=(0,1))
+def _at(sgn, N, si, sj, weight, mats):
+        bi = (1 - sgn * si) // 2
+        bj = (1 - sgn * sj) // 2
+        return weight*jnp.prod(mats[jnp.arange(N), bi, bj], axis=-1)

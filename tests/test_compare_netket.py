@@ -62,4 +62,4 @@ def test_netket_at_sampling(inv_order):
     si, sj, w = op_pa.sample(100)
     i = hilbert.states_to_numbers(si)
     j = hilbert.states_to_numbers(sj)
-    assert np.linalg.norm(op_nk.to_dense()[i,j] - w) < 1e-15
+    assert np.linalg.norm(op_nk.to_dense()[i, j] - w) < 1e-15

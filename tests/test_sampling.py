@@ -1,5 +1,3 @@
-import pytest
-
 import numpy as np
 
 import pauli_algebra as pa
@@ -46,8 +44,8 @@ def test_cover_identical_ele():
     ps = build_pauli_operator(seed=1234)
     n_samples = 100000
     σi, σj, _ = ps.sample(n_samples)
-    σ = np.array([σi.T,σj.T]).T
-    σ = (1 - σ)//2
+    σ = np.array([σi.T, σj.T]).T
+    σ = (1 - σ) // 2
 
     uv = (2 ** (np.arange(ps.N)[::-1]) @ σ).real.astype(int)
     u, v = np.unique(uv, axis=0).T
@@ -63,8 +61,8 @@ def test_matrix_is_close():
     ps = build_pauli_operator(seed=1234)
     n_samples = 200000
     σi, σj, w = ps.sample(n_samples)
-    σ = np.array([σi.T,σj.T]).T
-    σ = (1 - σ)//2
+    σ = np.array([σi.T, σj.T]).T
+    σ = (1 - σ) // 2
 
     uv = (2 ** (np.arange(ps.N)[::-1]) @ σ).real.astype(int)
     # We shouldn't do unique on uv: different Pauli strings act on the same indices, e.g. XZ vs YI

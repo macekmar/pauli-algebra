@@ -157,7 +157,7 @@ class PauliOperator(dict):
             shape = [shape]
 
         if pdf is None:
-            pdf = lambda w: np.abs(w) / np.sum(np.abs(w))
+            pdf = lambda w: np.abs(w) / np.sum(np.abs(w))  # noqa: E731
 
         # inds - which Pauli string of all we are taking
         inds = jax.random.choice(
@@ -173,7 +173,9 @@ class PauliOperator(dict):
         from .pauli_string import _string_to_number
 
         num_strings = np.array([_string_to_number(st) for st in self.strings])
-        σi, σj, w = _local_to_global(num_strings[inds], x, self.weights[inds], self._inverted_ordering)
+        σi, σj, w = _local_to_global(
+            num_strings[inds], x, self.weights[inds], self._inverted_ordering
+        )
 
         self._rng = new_key
 
@@ -204,7 +206,7 @@ class PauliOperator(dict):
     def at(self, si, sj):
         el = 0
         for k, s in self.items():
-            el += s.at(si,sj)
+            el += s.at(si, sj)
         return el
 
 
@@ -231,7 +233,7 @@ def _local_to_global(string, x, ps_weights, inverted_ordering):
     )
 
     if inverted_ordering:
-            σ = 2*inds[string, x] - 1
+        σ = 2 * inds[string, x] - 1
     else:
-            σ = 1 - 2*inds[string, x]
-    return σ[...,0], σ[...,1], ps_weights*np.prod(el_weights[string, x], -1)
+        σ = 1 - 2 * inds[string, x]
+    return σ[..., 0], σ[..., 1], ps_weights * np.prod(el_weights[string, x], -1)

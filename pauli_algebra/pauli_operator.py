@@ -153,7 +153,9 @@ class PauliOperator(dict):
         )
         # x - which element of Pauli matrix we are taking
         shp = list(shape) + [self.N]
-        x = jax.random.choice(key, jnp.array([0, 1]), shape=shp, replace=True)
+        x = jax.random.choice(
+            key, jnp.array([0, 1], dtype=jnp.int8), shape=shp, replace=True
+        )
 
         # Map local indices and weights to a global one
         from .pauli_string import _string_to_number

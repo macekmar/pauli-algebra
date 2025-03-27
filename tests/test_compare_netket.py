@@ -21,7 +21,7 @@ def test_netket_todense(inv_order):
         pa.PauliString(w, s, inverted_ordering=hilbert._inverted_ordering)
         for w, s in zip(weights, ops)
     ]
-    op_pa = pa.PauliOperator(strings=el)
+    op_pa = pa.PauliOperator(pauli_strings=el)
 
     assert np.linalg.norm(op_pa.to_dense() - op_nk.to_dense()) < 1e-15
     assert np.linalg.norm(op_pa.to_sparse().todense() - op_nk.to_dense()) < 1e-15
@@ -35,7 +35,7 @@ def test_netket_at(inv_order):
         pa.PauliString(w, s, inverted_ordering=hilbert._inverted_ordering)
         for w, s in zip(weights, ops)
     ]
-    op_pa = pa.PauliOperator(strings=el)
+    op_pa = pa.PauliOperator(pauli_strings=el)
 
     dh = nk.hilbert.DoubledHilbert(hilbert)
     σ = dh.all_states()
@@ -57,7 +57,7 @@ def test_netket_at_sampling(inv_order):
         pa.PauliString(w, s, inverted_ordering=hilbert._inverted_ordering)
         for w, s in zip(weights, ops)
     ]
-    op_pa = pa.PauliOperator(strings=el)
+    op_pa = pa.PauliOperator(pauli_strings=el)
 
     si, sj, w = op_pa.sample(100)
     i = hilbert.states_to_numbers(si)

@@ -23,24 +23,49 @@ class PauliOperator(dict):
     def __init__(
         self,
         N: Union[int, None] = None,
-        strings: Union[Iterable[PauliString], None] = None,
+        pauli_strings: Union[Iterable[PauliString], None] = None,
+        strings: Union[Iterable[str], None] = None,
+        weights: Union[Iterable[float], None] = None,
         seed: int = None,
         inverted_ordering: Union[bool, None] = None,
     ):
         """Creates an empty Pauli operator provided N or from a list of PauliStrings."""
-        if N is None and strings is None:
-            raise ValueError("Provide at least one argument")
-        if strings:
-            Ns = np.unique([s.N for s in strings])
-            assert len(Ns) == 1
-            inv_ord = set([s._inverted_ordering for s in strings])
+        if N is None and strings is None and pauli_strings is None:
+            raise TypeError("Provide at least one argument")
+        if strings is not None and weights is None:
+            raise TypeError("Beside strings you have to provide corresponding weights")
+
+        # Providing strings and weights, prepare PauliStrings
+        if strings is not None and weights is not None:
+            if pauli_strings is not None:
+                raise TypeError("Provide either strings with weights or PauliStrings")
+            if len(strings) != len(weights):
+                raise ValueError("Lenght of weights and strings should be the same")
+
+            pauli_strings = []
+            Ns = []
+            for s, w in zip(strings, weights):
+                Ns.append(len(s))
+                pauli_strings.append(PauliString(w, s))
+            Ns = np.unique(Ns)
+            inv_ord = [False]
+
+        if pauli_strings is not None:
+            for s in pauli_strings:
+                if isinstance(s, PauliString) is False:
+                    raise TypeError("Provided pauli_strings should be PauliStrings")
+            Ns = np.unique([s.N for s in pauli_strings])
+            inv_ord = set([s._inverted_ordering for s in pauli_strings])
             assert len(inv_ord) == 1  # They should be all the same
+
+        if pauli_strings:
+            if len(Ns) > 1:
+                raise ValueError("Provided strings should have the same Hilbert size.")
             if inverted_ordering is not None:
                 assert inverted_ordering == inv_ord.pop()
             else:
                 inverted_ordering = inv_ord.pop()
-
-            super().__init__((s.string, s) for s in strings)
+            super().__init__((s.string, s) for s in pauli_strings)
             if N:
                 assert N == Ns[0]
             N = Ns[0]

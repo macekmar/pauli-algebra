@@ -20,7 +20,7 @@ def test_at(inv_order):
     el = [
         pa.PauliString(w, s, inverted_ordering=inv_order) for w, s in zip(weights, ops)
     ]
-    op_pa = pa.PauliOperator(strings=el)
+    op_pa = pa.PauliOperator(pauli_strings=el)
 
     si = σ[:, :N]
     sj = σ[:, N:]
@@ -36,7 +36,7 @@ def test_at_sampling(inv_order):
     el = [
         pa.PauliString(w, s, inverted_ordering=inv_order) for w, s in zip(weights, ops)
     ]
-    op_pa = pa.PauliOperator(strings=el)
+    op_pa = pa.PauliOperator(pauli_strings=el)
 
     si, sj, w = op_pa.sample(100)
     assert np.linalg.norm(op_pa.at(si, sj) - w) < 1e-15

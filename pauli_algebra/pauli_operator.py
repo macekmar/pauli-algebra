@@ -80,6 +80,9 @@ class PauliOperator(dict):
             inverted_ordering = False
         self._inverted_ordering = inverted_ordering
 
+        self._weights = None
+        self._strings = None
+
     @property
     def N(self) -> int:
         """Number of sites."""
@@ -87,11 +90,16 @@ class PauliOperator(dict):
 
     @property
     def weights(self):
-        return np.array([ps.weight for _, ps in self.items()])
+        if self._weights is None:
+            self._weights = np.array([ps.weight for _, ps in self.items()])
+        return self._weights
+
 
     @property
     def strings(self):
-        return [ps.string for _, ps in self.items()]
+        if self._strings is None:
+            self._strings = [ps.string for _, ps in self.items()]
+        return self._strings
 
     @property
     def supports(self):
@@ -132,12 +140,21 @@ class PauliOperator(dict):
             value = PauliString(value, key)
 
         assert self.N == value.N
+        self._weights = None
+        self._strings = None
         super().__setitem__(key, value)
 
     def __getitem__(self, key: Union[str, PauliString]) -> PauliString:
         if isinstance(key, PauliString):
             return self[key.string]
         return super().__getitem__(key)
+
+    def __delitem__(self, key: Union[str, PauliString]):
+        if isinstance(key, PauliString):
+            key = key.string
+        self._weights = None
+        self._strings = None
+        return super().__delitem__(key)
 
     def __add__(self, dct: PauliOperator) -> PauliOperator:
         assert self.N == dct.N

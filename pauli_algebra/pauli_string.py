@@ -66,6 +66,11 @@ class PauliString:
         return self._w
 
     @property
+    def string_type(self):
+        s2i = {"I":1, "Z":1, "X":0, "Y":0}
+        return np.array([s2i[s] for i,s in enumerate(self.string)])
+
+    @property
     def acting_on(self):
         """Sites on which the Pauli string is acting on."""
         return tuple(i for i in range(self.N) if self.list[i] != "I")

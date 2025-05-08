@@ -72,6 +72,7 @@ class PauliOperator(dict):
         else:
             super().__init__()
 
+        assert N < 60  # See string_types
         self._N = N
 
         self._rng = None
@@ -82,6 +83,7 @@ class PauliOperator(dict):
 
         self._weights = None
         self._strings = None
+        self._string_types = None
 
     @property
     def N(self) -> int:
@@ -94,12 +96,19 @@ class PauliOperator(dict):
             self._weights = np.array([ps.weight for _, ps in self.items()])
         return self._weights
 
-
     @property
     def strings(self):
         if self._strings is None:
             self._strings = [ps.string for _, ps in self.items()]
         return self._strings
+
+    @property
+    def string_types(self):
+        if self._string_types is None:
+            self._string_types = np.array(
+                [ps.string_type for _, ps in self.items()], dtype=int
+            )  # This will fail if we have more than ~60 sites!
+        return self._string_types
 
     @property
     def supports(self):
@@ -142,6 +151,7 @@ class PauliOperator(dict):
         assert self.N == value.N
         self._weights = None
         self._strings = None
+        self._string_types = None
         super().__setitem__(key, value)
 
     def __getitem__(self, key: Union[str, PauliString]) -> PauliString:
@@ -154,6 +164,7 @@ class PauliOperator(dict):
             key = key.string
         self._weights = None
         self._strings = None
+        self._string_types = None
         return super().__delitem__(key)
 
     def __add__(self, dct: PauliOperator) -> PauliOperator:
@@ -192,18 +203,18 @@ class PauliOperator(dict):
             key = strings[ind]
             del self[key]
 
-    def sample(self, shape: int | List[int], pdf: Callable = None):
+    def sample(self, shape: int | List[int]):
         new_key, key = jax.random.split(self.rng)
 
         if np.isscalar(shape):
             shape = [shape]
 
-        if pdf is None:
-            pdf = lambda w: np.abs(w) / np.sum(np.abs(w))  # noqa: E731
+        abs_weights = jnp.abs(self.weights)
+        pdf_norm = jnp.sum(abs_weights)
 
         # inds - which Pauli string of all we are taking
         inds = jax.random.choice(
-            key, jnp.arange(len(self.weights)), shape=shape, p=pdf(self.weights)
+            key, jnp.arange(len(self.weights)), shape=shape, p=abs_weights / pdf_norm
         )
         # x - which element of Pauli matrix we are taking
         shp = list(shape) + [self.N]
@@ -251,6 +262,22 @@ class PauliOperator(dict):
             el += s.at(si, sj)
         return el
 
+    def pdf(self, σi, σj):
+        # Note: probability of σi,σj is not the same as probability
+        # of picking one Pauli string which contains σi,σj.
+        abs_weights = jnp.abs(self.weights)
+        assert σi.shape == σj.shape
+        shp = σi.shape
+        assert shp[-1] == self.N
+        return _pdf(
+            self.N,
+            σi.reshape(-1, self.N),
+            σj.reshape(-1, self.N),
+            abs_weights,
+            self.string_types,
+            jnp.sum(abs_weights),
+        ).reshape(shp[:-1])
+
 
 @partial(jax.jit, static_argnums=3)
 def _local_to_global(string, x, ps_weights, inverted_ordering):
@@ -279,3 +306,13 @@ def _local_to_global(string, x, ps_weights, inverted_ordering):
     else:
         σ = 1 - 2 * inds[string, x]
     return σ[..., 0], σ[..., 1], ps_weights * np.prod(el_weights[string, x], -1)
+
+
+@partial(jax.vmap, in_axes=(None, 0, 0, None, None, None))
+@partial(jax.jit, static_argnums=0)
+def _pdf(N, σi, σj, abs_weights, string_types, norm):
+    type_ind = (σi == σj)
+
+    return jnp.sum(jnp.all(string_types == type_ind, axis=1) * abs_weights) / (
+        2**N * norm
+    )

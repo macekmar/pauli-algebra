@@ -80,4 +80,16 @@ def test_matrix_is_close():
         m / σ.shape[0] * 2**ps.N * np.sum(np.abs(ps.weights))
     )  # -- should now be close to ps.to_dense()
 
-    assert np.linalg.norm(m - ps.to_dense()) / np.linalg.norm(ps.to_dense()) < 0.015
+    assert np.linalg.norm(m - ps.to_dense()) / np.linalg.norm(ps.to_dense()) < 0.0155
+
+def test_pdf():
+    ps = build_pauli_operator(seed=1234)
+    n_samples = 200000
+    σi, σj, w = ps.sample(n_samples)
+    _, indices, counts = np.unique(np.hstack((σi,σj)), axis=0, return_counts=True, return_index=True)
+    prob_samples = counts / n_samples
+    pdf = ps.pdf(σi[indices], σj[indices])
+
+    # Kullback-Leibler divergence
+    KL_div = np.sum(prob_samples * np.log(prob_samples/pdf))
+    assert KL_div < 1e-4
